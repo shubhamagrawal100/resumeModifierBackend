@@ -1,0 +1,27 @@
+{
+  "dependencies": {
+    "axios": "^1.7.7",
+    "bcryptjs": "^2.4.3",
+    "cheerio": "^1.0.0",
+    "cors": "^2.8.5",
+    "docx": "^9.0.2",
+    "express": "^4.21.1",
+    "file-type": "^16.5.3",
+    "filetype": "^0.1.0",
+    "mammoth": "^1.8.0",
+    "multer": "^1.4.5-lts.1",
+    "nodemon": "^3.1.7",
+    "officegen": "^0.6.5",
+    "sqlite3": "^5.1.7"
+  },
+  "name": "resumemodifier",
+  "version": "1.0.0",
+  "main": "server.js",
+  "scripts": {
+    "start": "node server.js",
+    "start:dev": "nodemon server.js"
+  },
+  "author": "",
+  "license": "ISC",
+  "description": ""
+}
