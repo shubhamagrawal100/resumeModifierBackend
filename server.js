@@ -11,6 +11,8 @@ const mammoth = require("mammoth");
 const { Document, Packer, Paragraph, TextRun } = require("docx");
 const officegen = require("officegen");
 const cors = require("cors");
+const marked = require("marked");
+
 
 
 const app = express();
@@ -26,11 +28,66 @@ db.serialize(() => {
 });
 
 
-// Enable CORS for all routes
+// Enable CORS for front end. 
 app.use(cors({
-    origin: "http://localhost:3000" // Allow requests from this specific origin
+    origin: "http://localhost:3003" // Allow requests from this specific origin
 }));
 
+async function createStyledWordDocumentFromMarkdown(markdownContent, filename) {
+    try{
+        const doc = officegen("docx");
+  
+        // Error handler for officegen
+        doc.on("error", (err) => console.log(err));
+      
+        const tokens = marked.lexer(markdownContent);
+      
+        tokens.forEach((token) => {
+          let pObj;
+          switch (token.type) {
+            case "heading":
+              pObj = doc.createP();
+              pObj.addText(token.text, { bold: true, font_size: token.depth === 1 ? 28 : 24 });
+              pObj.options.align = "left";
+              break;
+      
+            case "paragraph":
+              pObj = doc.createP();
+              pObj.addText(token.text, { font_size: 12 });
+              break;
+      
+            case "list":
+              token.items.forEach((item) => {
+                pObj = doc.createListOfTexts([{ text: `• ${item.text}`, font_size: 12 }]);
+              });
+              break;
+      
+            case "blockquote":
+              pObj = doc.createP();
+              pObj.addText(token.text, { italics: true, font_size: 12, color: "444444" });
+              break;
+      
+            case "code":
+              pObj = doc.createP();
+              pObj.addText(token.text, { font_face: "Courier New", font_size: 12 });
+              break;
+      
+            default:
+              break;
+          }
+        });
+      
+        // Save the document to the specified path
+        const output = fs.createWriteStream(filename);
+        output.on("error", (err) => console.log(err));
+      
+        // Generate the document and save
+        doc.generate(output);
+    }catch(err){
+        console.log(err);
+    }
+    
+  }
 
 async function createWordDocument(content, filename) {
   return new Promise((resolve, reject) => {
@@ -164,7 +221,14 @@ app.post('/modify', async (req, res) => {
             console.log(jobdescriptionURL);
 
 
-            const prompt = `Rewrite the following resume to better match this job description:\n\nJob Description URL : ${jobdescriptionURL}\n\nResume:\n${resumeText}. Return two  objects in response, one containing the complete resume (keep the original formatting. Call it **Resume**. ) and another containing the commentary on the resume , what you have changed and how you have aligned the resume to the job description in the commentary section. (Call it **Commentary**). Return just these two objects and nothing else.`;
+            const prompt = `Rewrite the following resume to better match this job description:\n\nJob Description URL : ${jobdescriptionURL}\n\nResume:\n${resumeText}. 
+            Return two  objects in response, one containing the complete resume in markdown nicely formatted (Call it **Resume**. ) 
+            and another containing the commentary on the resume , what you have changed and how have you aligned the resume to the 
+            job description in the commentary section. (Call it **Commentary**). Return just these two objects and nothing else. Keep following points in mind
+            1. Please do not add any data which is not factual. 
+            2. Keep the sections as in the resume, you can ONLY change the content within sections. 
+            3. DO NOT alter the education or contact details at all. 
+            4. Keep the work experience as is, you can only change the framing of sections within each work experience.`;
             console.log(prompt);
             // Sending request to Ollama for resume modification using Llama 3.1
             const response = await axios.post("http://localhost:11434/api/generate", {
@@ -199,7 +263,8 @@ app.post('/modify', async (req, res) => {
           
                 // Save modified resume as Word document
                 const modifiedResumePath = path.join(".", `modified_${username}.docx`);
-                await createWordDocument(resumeText, modifiedResumePath);
+             await createStyledWordDocumentFromMarkdown(resumeText, modifiedResumePath);
+                // await createWordDocument(resumeText, modifiedResumePath);
           
                 res.status(200).json({
                   message: "Resume modified successfully.",
@@ -224,6 +289,13 @@ app.get('/download/:filename', (req, res) => {
             res.status(404).json({ error: "File not found." });
         }
     });
+});
+
+// Download Modified Resume Endpoint
+app.get('/', (req, res) => {  
+    res.status(200).json({
+    message: "App Running"
+  });
 });
 
 // Start the server
